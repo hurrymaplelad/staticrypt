@@ -321,19 +321,37 @@ Filename changed to circumvent adblockers that mistake it for a crypto miner (se
             salt = hashed.salt;
 
         var encrypted = encrypt(unencrypted, hashedPassphrase),
-            // we use the hashed passphrase in the HMAC because this is effectively what will be used a passphrase (so
-            // we can store it localStorage safely, we don't use the clear text passphrase)
+        // we use the hashed passphrase in the HMAC because this is effectively what will be used a passphrase (so
+        // we can store it localStorage safely, we don't use the clear text passphrase)
             hmac = CryptoJS.HmacSHA256(encrypted, CryptoJS.SHA256(hashedPassphrase).toString()).toString(),
             encryptedMsg = hmac + encrypted;
+
+        // TODO(aph) - move this into a new (async?) encypt() function
+        // var iv = crypto.getRandomValues(new Uint8Array(16));
+        // var ivHex = bytesToHexString(iv);
+        // var pwUtf8 = stringToUint8Array(passphrase);
+        // crypto.subtle.digest('SHA-256', pwUtf8).then(function(hash) {
+        //    var pwHex = bytesToHexString(hash);
+        //    var keyData = hexStringToUint8Array(pwHex);
+        //    crypto.subtle.importKey("raw", keyData, "aes-gcm", false, ["encrypt"]).then(function(key) {
+        //        return crypto.subtle.encrypt({
+        //            name: "aes-gcm",
+        //            iv: iv
+        //        }, key, stringToUint8Array(unencrypted));
+        //    }, failAndLog)
+        //    .then(function(cipherText) {
+        //        var encryptedMsg = ivHex + bytesToHexString(cipherText);
+
 
         var decryptButton = document.getElementById('decrypt_button').value,
             instructions = document.getElementById('instructions').value,
             isRememberEnabled = document.getElementById('remember').checked,
-            pageTitle = document.getElementById('title').value.trim(),
             passphrasePlaceholder = document.getElementById('passphrase_placeholder').value.trim(),
             rememberDurationInDays = document.getElementById('remember_in_days').value || 0,
             rememberMe = document.getElementById('remember_me').value;
 
+        var pageTitle = document.getElementById('title').value.trim();
+        var 
         var data = {
             crypto_tag: '<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js" integrity="sha384-lp4k1VRKPU9eBnPePjnJ9M2RF3i7PC30gXs70+elCVfgwLwx1tv5+ctxdtwxqZa7" crossorigin="anonymous"></scr' + 'ipt>',
             decrypt_button: decryptButton ? decryptButton : 'DECRYPT',
@@ -347,14 +365,12 @@ Filename changed to circumvent adblockers that mistake it for a crypto miner (se
             title: pageTitle ? pageTitle : 'Protected Page',
         };
 
-        document.getElementById('encrypted_html_display').textContent = encrypted;
+                document.getElementById('encrypted_html_display').textContent = encryptedMsg;
 
-        if (document.getElementById("embed-crypto").checked) {
-            setFileToDownloadWithEmbeddedCrypto(data);
-        } else {
-            setFileToDownload(data);
-        }
+                setFileToDownload(data);
 
+            }, failAndLog);
+        });
     });
 
     document.getElementById('toggle-extra-option')
@@ -374,6 +390,52 @@ Filename changed to circumvent adblockers that mistake it for a crypto miner (se
 
             document.getElementById('concept').classList.toggle('hidden');
         });
+
+    /*
+     * encode/decode funtions
+     */
+
+    function hexStringToUint8Array(hexString) {
+        if (hexString.length % 2 != 0)
+            throw "Invalid hexString";
+        var arrayBuffer = new Uint8Array(hexString.length / 2);
+
+        for (var i = 0; i < hexString.length; i += 2) {
+            var byteValue = parseInt(hexString.substr(i, 2), 16);
+            if (byteValue == NaN)
+                throw "Invalid hexString";
+            arrayBuffer[i / 2] = byteValue;
+        }
+
+        return arrayBuffer;
+    }
+
+    function bytesToHexString(bytes) {
+        if (!bytes)
+            return null;
+
+        bytes = new Uint8Array(bytes);
+        var hexBytes = [];
+
+        for (var i = 0; i < bytes.length; ++i) {
+            var byteString = bytes[i].toString(16);
+            if (byteString.length < 2)
+                byteString = "0" + byteString;
+            hexBytes.push(byteString);
+        }
+        return hexBytes.join("");
+    }
+
+    function stringToUint8Array(str) {
+        var encoder = new TextEncoder('utf-8');
+        return encoder.encode(str);
+    }
+
+    function failAndLog(error) {
+        console.log(error);
+    }
+
+
 
 
     /**
