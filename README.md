@@ -2,7 +2,7 @@
 
 # StatiCrypt
 
-StatiCrypt uses AES-256 to encrypt your HTML file with your passphrase and return a static page with a password prompt you can safely upload anywhere (see [example](https://robinmoisson.github.io/staticrypt/example.html)).
+Based on the [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API), StatiCrypt uses AES-GCM to encrypt your string with your passphrase in your browser (client side).
 
 This means you can password protect the content of your static HTML file while still having the whole file completely public, without any back-end - serving it over Netlify, GitHub pages, etc.
 
@@ -14,7 +14,7 @@ StatiCrypt use the [crypto-js](https://github.com/brix/crypto-js) library to gen
 
 It basically encrypts your page and puts everything with a user-friendly way to use a password in the new file.
 
-AES-256 is state of the art but brute-force/dictionary attacks would be trivial to do at a really fast pace: **use a long, unusual passphrase**.
+AES-GCM is state of the art but brute-force/dictionary attacks would be trivial to do at a really fast pace: **use a long, unusual passphrase**.
 
 **Disclaimer:** The concept is simple and should work ok but I am not a cryptographer, if you have sensitive banking or crypto data you might want to use something else. :)
 
@@ -88,7 +88,6 @@ find . -type f -name "*.html" -not -name "*_encrypted.html" -exec staticrypt {} 
                                                 [string] [default: "Protected Page"]
 
 
-
 ### "Remember me" checkbox
 
 The CLI will add a "Remember me" checkbox on the password prompt by default (`--noremember` to disable). If the user checks it, the (salted + hashed) passphrase will be stored in their browser's localStorage and the page will attempt to auto-decrypt when they come back.
@@ -116,10 +115,6 @@ Yes! Just copy `cli/password_template.html`, modify it to suit your style and po
 ### Can I prevent the "Remember me" checkbox?
 
 If you don't want the checkbox to be included, you can add the `--noremember` flag to disable it.
-
-### Why do we embed the whole crypto-js library in each encrypted file by default?
-
-Some adblockers used to see the `crypto-js.min.js` served by CDN, think that's a crypto miner and block it. If you don't want to include it and serve from a CDN instead, you can add `--embed false`.
 
 ### Why does StatiCrypt create a config file?
 
