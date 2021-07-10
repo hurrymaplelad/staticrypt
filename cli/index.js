@@ -2,13 +2,14 @@
 
 'use strict';
 
-const CryptoJS = require("crypto-js");
 const fs = require("fs");
 const path = require("path");
 const Yargs = require('yargs');
+const { subtle, getRandomValues } = require('crypto').webcrypto;
+const { readFileSync, writeFileSync } = require("fs");
+const { join } = require("path");
+const { usage, showHelp } = require('yargs');
 
-const SCRIPT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.min.js';
-const SCRIPT_TAG = '<script src="' + SCRIPT_URL + '" integrity="sha384-lp4k1VRKPU9eBnPePjnJ9M2RF3i7PC30gXs70+elCVfgwLwx1tv5+ctxdtwxqZa7" crossorigin="anonymous"></script>';
 
 /**
  * Salt and encrypt a msg with a password.
@@ -16,7 +17,6 @@ const SCRIPT_TAG = '<script src="' + SCRIPT_URL + '" integrity="sha384-lp4k1VRKP
  */
 function encrypt(msg, hashedPassphrase) {
     var iv = CryptoJS.lib.WordArray.random(128 / 8);
-
     var encrypted = CryptoJS.AES.encrypt(msg, hashedPassphrase, {
         iv: iv,
         padding: CryptoJS.pad.Pkcs7,
@@ -225,24 +225,12 @@ const hashedPassphrase = hashPassphrase(passphrase, salt);
 const encrypted = encrypt(contents, hashedPassphrase);
 // we use the hashed passphrase in the HMAC because this is effectively what will be used a passphrase (so we can store
 // it in localStorage safely, we don't use the clear text passphrase)
-const hmac = CryptoJS.HmacSHA256(encrypted, CryptoJS.SHA256(hashedPassphrase).toString()).toString();
-const encryptedMessage = hmac + encrypted;
+// const hmac = CryptoJS.HmacSHA256(encrypted, CryptoJS.SHA256(hashedPassphrase).toString()).toString();
+// const encryptedMessage = hmac + encrypted;
 
-// create crypto-js tag (embedded or not)
-let cryptoTag = SCRIPT_TAG;
-if (namedArgs.embed) {
-    try {
-        const embedContents = fs.readFileSync(path.join(__dirname, 'crypto-js.min.js'), 'utf8');
 
-        cryptoTag = '<script>' + embedContents + '</script>';
-    } catch (e) {
-        console.log("Failure: embed file does not exist!");
-        process.exit(1);
-    }
-}
-
+// TODO(aph) - Merge this data with the literal in ecrypt below
 const data = {
-    crypto_tag: cryptoTag,
     decrypt_button: namedArgs.decryptButton,
     embed: namedArgs.embed,
     encrypted: encryptedMessage,
@@ -256,8 +244,48 @@ const data = {
     title: namedArgs.title,
 };
 
-genFile(data);
+// genFile(data);
 
+
+function encrypt (msg, password) {
+    var iv = getRandomValues(new Uint8Array(16));
+    var ivHex = bytesToHexString(iv);
+    var pwUtf8 = stringToUint8Array(password);
+
+    subtle.digest('SHA-256', pwUtf8)
+    .then(function(hash) {
+        return bytesToHexString(hash);
+    })
+    .then(function(pwHex) {
+    return hexStringToUint8Array(pwHex);
+    })
+    .then(function(keyData) {
+    return subtle.importKey("raw", keyData, "AES-GCM", false, ["encrypt"]);
+    })
+    .then(function(key) {
+        return subtle.encrypt({
+            name: "AES-GCM",
+            iv: iv
+        }, key, stringToUint8Array(msg));
+    })
+    .then(function(cipherText) {
+        return ivHex + bytesToHexString(cipherText);
+    })
+    .then(function(encrypted) {
+        return {
+            title: namedArgs.title,
+            instructions: namedArgs.instructions,
+            encrypted: encrypted,
+            outputFilePath: namedArgs.output !== null ? namedArgs.output : input.replace(/\.html$/, '') + "_encrypted.html"
+        };
+    })
+    .then(function(data) {
+        genFile(data);
+    })
+    .catch(console.log);
+}
+
+encrypt(contents, password)
 
 /**
  * Fill the template with provided data and writes it to output file.
@@ -299,4 +327,44 @@ function render(tpl, data) {
 
         return '';
     });
+}
+
+/*
+* encode/decode funtions
+*/
+
+function hexStringToUint8Array(hexString) {
+    if (hexString.length % 2 != 0)
+        throw "Invalid hexString";
+    var arrayBuffer = new Uint8Array(hexString.length / 2);
+
+    for (var i = 0; i < hexString.length; i += 2) {
+        var byteValue = parseInt(hexString.substr(i, 2), 16);
+        if (byteValue == NaN)
+            throw "Invalid hexString";
+        arrayBuffer[i / 2] = byteValue;
+    }
+
+    return arrayBuffer;
+}
+
+function bytesToHexString(bytes) {
+    if (!bytes)
+        return null;
+
+    bytes = new Uint8Array(bytes);
+    var hexBytes = [];
+
+    for (var i = 0; i < bytes.length; ++i) {
+        var byteString = bytes[i].toString(16);
+        if (byteString.length < 2)
+            byteString = "0" + byteString;
+        hexBytes.push(byteString);
+    }
+    return hexBytes.join("");
+}
+
+function stringToUint8Array(str) {
+    var encoder = new TextEncoder('utf-8');
+    return encoder.encode(str);
 }
