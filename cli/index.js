@@ -5,14 +5,8 @@
 const fs = require("fs");
 const path = require("path");
 const Yargs = require("yargs");
-const { subtle, getRandomValues } = require("crypto").webcrypto;
-const { readFileSync, writeFileSync } = require("fs");
-const { join } = require("path");
-const { usage, showHelp } = require("yargs");
 const { webcrypto } = require("crypto");
-
-const getRandomValues = webcrypto.getRandomValues.bind(webcrypto);
-const subtle = webcrypto.subtle;
+const { subtle } = webcrypto.subtle;
 
 /**
  * Salt and encrypt a msg with a password.
@@ -39,6 +33,10 @@ function encrypt(msg, hashedPassphrase) {
  * @returns string
  */
 function hashPassphrase(passphrase, salt) {
+  // New
+  // const hashedPassphrase = subtle.
+
+  // Old
   var hashedPassphrase = CryptoJS.PBKDF2(passphrase, salt, {
     keySize: 256 / 32,
     iterations: 1000,
@@ -48,7 +46,8 @@ function hashPassphrase(passphrase, salt) {
 }
 
 function generateRandomSalt() {
-  return CryptoJS.lib.WordArray.random(128 / 8).toString();
+  const bytes = webcrypto.getRandomValues(new Uint8Array(128 / 8));
+  return bytesToHexString(bytes);
 }
 
 /**
@@ -255,7 +254,7 @@ const data = {
 // genFile(data);
 
 function encrypt(msg, password) {
-  var iv = getRandomValues(new Uint8Array(16));
+  var iv = webcrypto.getRandomValues(new Uint8Array(16));
   var ivHex = bytesToHexString(iv);
   var pwUtf8 = stringToUint8Array(password);
 
